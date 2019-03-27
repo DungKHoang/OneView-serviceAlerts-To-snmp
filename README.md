@@ -1,7 +1,7 @@
 # OV Alerts to SNMP
 
-The script serviceAlerts-to-snmp.ps1 collects service alerts from OneView and displays snmp traps associated with this alert
-This is useful in the scenario where administrator wants to find OneView service alerts that generate ticket service to HPE Support ( through IRS) and have SNMP OIID trap attached to it. the output allows admins to correlate service tickets with snmp traps received in their mornitoring environment.
+The script serviceAlerts-to-snmp.ps1 collects service alerts from OneView and displays snmp traps associated with each alert
+This is useful in the scenario where administrator wants to find OneView service alerts that generate ticket service to HPE Support ( through IRS) and have SNMP OIID trap attached to it. The output allows admins to correlate service tickets with snmp traps received in their mornitoring environment.
 
 ## Prerequisites
 The  script requires:
