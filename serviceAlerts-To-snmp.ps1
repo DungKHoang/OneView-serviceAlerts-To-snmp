@@ -1,16 +1,16 @@
 
 Param ( [string]$OVApplianceIP      ="",
-        [string]$OVlistCSV          = "",
-        [PScredential]$OVcredential = $Null,
-        [string]$OVAdminName        ="", 
-        [string]$OVAdminPassword    ="",
-        [string]$OVAuthDomain       = "local",
+[string]$OVlistCSV          = "",
+[PScredential]$OVcredential = $Null,
+[string]$OVAdminName        ="", 
+[string]$OVAdminPassword    ="",
+[string]$OVAuthDomain       = "local",
 
-        [string]$OneViewModule      = "HPOneView.410",  
+[string]$OneViewModule      = "HPOneView.410",  
 
-        [dateTime]$Start              = (get-date -day 1) ,
-        [dateTime]$End                = (get-date) , 
-        [string]$Severity           = ''                 # default will be critical and warning
+[dateTime]$Start              = (get-date -day 1) ,
+[dateTime]$End                = (get-date) , 
+[string]$Severity           = ''                 # default will be critical and warning
 
 )
 #$ErrorActionPreference = 'SilentlyContinue'
@@ -40,7 +40,7 @@ $ovObject   = $filename.Split($Dot)[0]
 
 New-Item $OutFile -ItemType file -Force -ErrorAction Stop | Out-Null
 
-$HeaderText = "caseID|hardware|correctiveAction|description|snmpOID|applianceConnection"
+$HeaderText = "caseID|hardware|correctiveAction|description|snmpOID|snmpTrap|applianceConnection"
 
 write-host -ForegroundColor Cyan "CSV file --> $((dir $outFile).FullName)"
 Set-content -path $outFile -Value $HeaderText
@@ -64,7 +64,7 @@ import-module $OneViewModule
 
 $isImportExcelPresent   = (get-module -name "ImportExcel" -listavailable ) -ne $NULL
 if (-not $isImportExcelPresent )
-{   write-host -foreground YELLOW "Import Excel module not found. Install the module with the command -->  install-module ImportExcel "}
+{   write-host -foreground YELLOW "Import Excel mopdule not found. Install the module with the command -->  install-module ImportExcel "}
 
 # ---------------- Connect to OneView appliance
 #
@@ -106,49 +106,52 @@ $scriptCode         =  New-Object System.Collections.ArrayList
 
 foreach ($connection in $global:connectedSessions) 
 {
-    Write-host -ForegroundColor CYAN "`nCollecting Alert from $StartDate to $endDate on OneView $connection ....`n"
+Write-host -ForegroundColor CYAN "`nCollecting Alert from $StartDate to $endDate on OneView $connection ....`n"
 
 
-    $ListofAlerts   = get-hpovServiceAlert -ApplianceConnection $connection  -Start $Start -End $End  
-    
+$ListofAlerts   = get-hpovServiceAlert -ApplianceConnection $connection  -Start $Start -End $End  
 
-    foreach ($alert in $ListofAlerts)
+
+foreach ($alert in $ListofAlerts)
+{
+$caseID                 = $alert.caseID
+$hardware               = $alert.resourceName
+$applianceConnection    = $alert.applianceConnection
+$correctiveAction       = $alert.correctiveAction
+$description            = $alert.description
+$alertUri               = $alert.Uri 
+if (-not ([string]::IsNullOrEmpty($alertUri)))
+{
+    $eventUri               = (Send-HPOVRequest -uri $alertUri -hostname $connection.Name).associatedEventUris
+
+    $snmpValue              = ""
+    if ($eventUri)
     {
-        $caseID                 = $alert.caseID
-        $hardware               = $alert.resourceName
-        $applianceConnection    = $alert.applianceConnection
-        $correctiveAction       = $alert.correctiveAction
-        $description            = $alert.description
-        $alertUri               = $alert.Uri 
-        if (-not ([string]::IsNullOrEmpty($alertUri)))
+        $eventUri           = [string]$eventUri
+        $ev                 = send-HPOVRequest -uri $eventUri -hostname $connection.Name
+        if ($ev)
         {
-            $eventUri               = (Send-HPOVRequest -uri $alertUri -hostname $connection.Name).associatedEventUris
-
-            $snmpValue              = ""
-            if ($eventUri)
+            $key            = $ev.eventdetails | where eventItemName -eq 'CorrelationKey'
+            if ($key)
             {
-                $eventUri           = [string]$eventUri
-                $ev                 = send-HPOVRequest -uri $eventUri -hostname $connection.Name
-                if ($ev)
-                {
-                    $key            = $ev.eventdetails | where eventItemName -eq 'CorrelationKey'
-                    if ($key)
-                    {
-                        $snmpValue  = $key.eventItemValue 
-                       
-                    }
-                }
-            }
-            # --- Write value
-            if ($snmpValue -like '*snmp*')
-            {
-                $value                  = "$caseID|$hardware|$correctiveAction|$description|$snmpValue|$applianceConnection"
-                [void]$scriptCode.Add('{0}' -f $value)
+                $snmpValue  = $key.eventItemValue 
+               
             }
         }
-
-
     }
+    # --- Write value
+    if ($snmpValue -like '*snmp*')
+    {
+        $snmpArray              = $snmpValue.Split(':')
+        $snmpOID                = $snmpArray[2] + ':' + $snmpArray[3]
+        $trapID                 = $snmpArray[4]
+        $value                  = "$caseID|$hardware|$correctiveAction|$description|$snmpOID|$trapID|$applianceConnection"
+        [void]$scriptCode.Add('{0}' -f $value)
+    }
+}
+
+
+}
 }
 
 # --- Write to file
@@ -159,8 +162,8 @@ Out-ToScriptFile -Outfile $outFile
 #
 if ($isImportExcelPresent)
 {
-    $excelFile  = (Dir $outFile).BaseName + ".xlsx"
-    import-csv -delimiter '|' $outFile | export-Excel -Path $excelFile -WorksheetName "snmp"
+$excelFile  = (Dir $outFile).BaseName + ".xlsx"
+import-csv -delimiter '|' $outFile | export-Excel -Path $excelFile -WorksheetName "snmp"
 }
 
 write-host -ForegroundColor Cyan "-----------------------------------------------------"
