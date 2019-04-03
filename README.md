@@ -24,12 +24,14 @@ if the ImportExcel module is installed, the script will generate Excel file.
 
 ```
    $cred    = get-credential   # Provide credential to connect to OneView
-    .\serviceAlerts-To-snmp.ps1 -OVlistCSV  <OVappliances.txt> -OVcredential $cred -Start <start-day-of-alert-collection> -End <end-day-of-alert-collection> 
+    .\serviceAlerts-To-snmp.ps1 -OVlistCSV  <OVappliances.txt> -OVcredential $cred -Start <start-day-of-alert-collection> -End <end-day-of-alert-collection> -All:$true
 
 ```
 Default values are:
 
    * Start : get-date -day 1   --> Beginning of current month
    * End   : get-date          --> today
+   * All   : if the parameter is present, all service tickets (closed or open) are examined. If it's not present, only opened service tickest are collected.
+
    
     
