@@ -34,6 +34,39 @@ $Underscore     = '_'
 
 $Syn12K                   = 'SY12000' # Synergy enclosure type
 
+# -----------------------------  Custom data
+$Prefix         = "serviceAlert-snmp"
+$worksheetName  = "serviceAlert-snmp"
+$HeaderText     = "caseID|dateCreated|remoteSupportstate|mailSentTo|resource|S/N|hostname|description|snmpOID|trap|applianceConnection"
+$columsToAlign  = @(1,10)  # caseID, trap
+$alignType      = "center"
+
+function Generate-Excel 
+{
+    Param (
+        [string]$excelFile,
+        [string]$worksheetName,
+        [PSCustomObject]$csvObject,
+        [array]$columnsToAlign,
+        [string]$alignType      = "left"   
+    )
+
+    if ($csvObject)
+    {
+        $xl = $csvObject| Export-Excel -Path $excelFile -KillExcel -WorkSheetname $worksheetname -BoldTopRow -AutoSize -PassThru
+        $Sheet = $xl.Workbook.Worksheets[$worksheetName]
+        
+        if ($columnsToAlign)
+        { 
+            $columnsToAlign | % { Set-ExcelColumn -Worksheetname $worksheetName -ExcelPackage $xl -Column $_ -HorizontalAlignment $alignType}
+        }
+        # custom heading
+        Set-ExcelRow -Worksheet $sheet -Row 1  -FontSize 15 -BorderBottom thick -BorderColor darkblue -fontname Calibri -fontcolor darkblue -HorizontalAlignment center
+        
+        Close-ExcelPackage $xl -show
+    }
+}
+
 Function Prepare-OutFile ([string]$Outfile)
 {
 
@@ -41,9 +74,6 @@ $filename   = $outFile.Split($Delimiter)[-1]
 $ovObject   = $filename.Split($Dot)[0] 
 
 New-Item $OutFile -ItemType file -Force -ErrorAction Stop | Out-Null
-
-$HeaderText = "caseID|dateCreated|remoteSupportstate|mailSentTo|resource|S/N|hostname|description|snmpOID|trap|applianceConnection"
-
 
 write-host -ForegroundColor Cyan "CSV file --> $((dir $outFile).FullName)"
 Set-content -path $outFile -Value $HeaderText
@@ -99,7 +129,7 @@ type $OVlistCSV | % { Connect-HPOVMgmt -Hostname $_ -Credential $OVcredential }
 
 $timeStamp          = [DateTime]::Now.ToUniversalTime().ToString('yyyy-MM-ddTHH.mm.ss.ff.fffZzzz').Replace(':','')
 
-$OutFile            = "serviceAlert-snmp-$timeStamp.CSV"
+$OutFile            = "$Prefix-$timeStamp.CSV"
 
 $startDate          = $start.ToShortDateString()
 $endDate            = $end.ToShortDateString()
@@ -198,7 +228,8 @@ if ($isImportExcelPresent)
     if (test-path $Outfile)
     {
         $excelFile  = (Dir $outFile).BaseName + ".xlsx"
-        import-csv -delimiter '|' $outFile | sort dateCreated -Descending| export-Excel -Path $excelFile -WorksheetName "ServiceAlerts-snmp"
+        $csvobject  = import-csv -delimiter '|' $outFile | sort dateCreated -Descending
+        generate-Excel -excelFile  $excelFile -WorksheetName $WorksheetName -csvObject $csvobject -columnsToAlign $columsToAlign -alignType $alignType
     }
 }
 
