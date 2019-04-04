@@ -63,7 +63,7 @@ function Generate-Excel
         # custom heading
         Set-ExcelRow -Worksheet $sheet -Row 1  -FontSize 15 -BorderBottom thick -BorderColor darkblue -fontname Calibri -fontcolor darkblue -HorizontalAlignment center
         
-        Close-ExcelPackage $xl -show
+        Close-ExcelPackage $xl 
     }
 }
 
@@ -133,7 +133,7 @@ $OutFile            = "$Prefix-$timeStamp.CSV"
 
 $startDate          = $start.ToShortDateString()
 $endDate            = $end.ToShortDateString()
-Write-Host -ForegroundColor Cyan "CSV file -->     $OutFile  "
+
 write-host -ForegroundColor CYAN "##NOTE: Delimiter used in the CSV file is '|' "
 
 $scriptCode         =  New-Object System.Collections.ArrayList
